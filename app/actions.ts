@@ -1,51 +1,56 @@
 "use server"
 
-// This is a placeholder for the actual Nebius AI Studio API integration
-// You'll need to replace this with the actual API call to Nebius AI Studio
+import OpenAI from "openai"
+
+// Initialize the OpenAI client with Nebius AI Studio configuration
+// The client is only created on the server side since this is a Server Action
 export async function generateTodos(project: string, workLifeRatio: number): Promise<string[]> {
   try {
-    // In a real implementation, you would call the Nebius AI Studio API here
-    // For now, we'll simulate a response based on the project and work-life ratio
+    // Initialize the client inside the server action to ensure it only runs on the server
+    const client = new OpenAI({
+      baseURL: "https://api.studio.nebius.com/v1/",
+      apiKey: process.env.NEBIUS_API_KEY,
+      dangerouslyAllowBrowser: true, // This is safe because we're in a server action
+    })
 
-    // Simulate API latency
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    // Calculate work-life balance description
+    const workPercentage = Math.round(workLifeRatio * 100)
+    const lifePercentage = 100 - workPercentage
 
-    const workFocused = workLifeRatio >= 0.5
+    // Construct the prompt for the AI
+    const prompt = `
+      Generate a list of 5-7 todo items for a project called "${project}".
+      
+      Work-Life Balance: ${workPercentage}% Work, ${lifePercentage}% Life
+      
+      If the balance is more work-focused, include more professional tasks related to the project.
+      If the balance is more life-focused, include more personal well-being and break tasks with fewer work items.
+      
+      Format the response as a simple list with each todo item on a new line.
+      Don't include numbers, bullets, or any other formatting - just the plain text of each task.
+    `
 
-    // Generate different types of todos based on the work-life ratio
-    let todos: string[] = []
+    // Call the Nebius AI Studio API
+    const completion = await client.chat.completions.create({
+      temperature: 0.6,
+      model: "meta-llama/Meta-Llama-3.1-70B-Instruct",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    })
 
-    if (workFocused) {
-      // More work-related tasks
-      todos = [
-        `Research best practices for ${project}`,
-        `Create a project plan for ${project}`,
-        `Schedule a meeting with stakeholders about ${project}`,
-        `Document requirements for ${project}`,
-        `Set up development environment for ${project}`,
-      ]
+    // Extract the response text
+    const responseText = completion.choices[0]?.message?.content || ""
 
-      // Add some life-related tasks based on the ratio
-      if (workLifeRatio < 0.8) {
-        todos.push("Take a 15-minute break every 2 hours")
-        todos.push("Schedule time for lunch away from your desk")
-      }
-    } else {
-      // More life-related tasks with some work
-      todos = [
-        `Brainstorm ideas for ${project} (30 minutes max)`,
-        "Take a 30-minute walk outside",
-        "Practice mindfulness meditation for 10 minutes",
-        "Plan a fun activity for the evening",
-        "Check in with a friend or family member",
-      ]
-
-      // Add some work-related tasks based on the ratio
-      if (workLifeRatio > 0.2) {
-        todos.push(`Review progress on ${project}`)
-        todos.push(`Identify one small task to complete for ${project}`)
-      }
-    }
+    // Split the response into individual todo items
+    // This assumes the model follows instructions to put each item on a new line
+    const todos = responseText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
 
     return todos
   } catch (error) {
