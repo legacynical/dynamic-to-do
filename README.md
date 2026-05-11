@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Dynamic To Do
+
+Dynamic To Do is a Next.js app for turning a project or day-plan prompt into an editable todo list. It can generate AI task suggestions shaped by a Life/Work balance slider, then lets the user add, edit, complete, delete, clear, and reorder tasks locally.
+
+## Documentation
+
+- [Documentation index](docs/_index.md) routes the project docs by purpose.
+- [Product requirements](docs/product-requirements.md) captures product intent, scope, user-facing rules, and open owner decisions.
+- [Technology stack](docs/tech-stack.md) captures runtime, dependency, script, provider, and validation facts.
+- [Architecture](docs/architecture.md) captures module boundaries, state ownership, control flow, and anti-hack constraints.
+- [AI todo generation SRD](docs/subsystem-requirements/ai-todo-generation.md) covers provider calls, prompt behavior, output parsing, and generation failure handling.
+- [Task list interaction SRD](docs/subsystem-requirements/task-list-interaction.md) covers local todo lifecycle, editing, completion, deletion, clearing, and drag-and-drop behavior.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+AI generation currently uses a Nebius AI Studio OpenAI-compatible endpoint. Create `.env.local` and set this variable before using generation:
 
-## Learn More
+```bash
+NEBIUS_API_KEY=...
+```
 
-To learn more about Next.js, take a look at the following resources:
+`NEBIUS_BASE_URL` is optional and should normally stay unset; the browser test
+suite uses it to point the server action at a local OpenAI-compatible mock.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The local todo controls still work without a successful provider call.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Key Source Files
 
-## Deploy on Vercel
+- `app/page.tsx` owns the main page workflow and local todo state.
+- `app/actions.ts` owns the AI generation server action.
+- `components/todo-item.tsx` owns per-item editing, completion, deletion, and drag handle behavior.
+- `components/ui/` contains the local UI primitives used by the page.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev
+npm run build
+```
+
+`npm run lint` is present in `package.json`, but the project currently uses Next.js 15 where the legacy `next lint` command may need to be replaced with an ESLint CLI command.

@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint .",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "env:check": "node scripts/check-env.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -18,7 +21,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.483.0",
-    "next": "15.2.3",
+    "next": "^15.5.18",
     "openai": "^4.89.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -27,11 +30,12 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "22.13.11",
     "@types/react": "19.0.12",
     "eslint": "^9",
-    "eslint-config-next": "15.2.3",
+    "eslint-config-next": "^15.5.18",
     "tailwindcss": "^4"
   }
 }

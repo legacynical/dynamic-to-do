@@ -16,13 +16,13 @@ import { generateTodos } from "@/app/actions";
 import {
   DndContext,
   closestCenter,
+  type DragEndEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -30,6 +30,15 @@ import {
 
 // Spinning loading icon
 import { Loader2 } from "lucide-react";
+
+import {
+  addTodoToList,
+  appendGeneratedTodos,
+  deleteTodoById,
+  reorderTodosByIds,
+  toggleTodoCompleted,
+  updateTodoText,
+} from "@/lib/todo-state.mjs";
 
 // TypeScript interface definitions for type safety:
 interface Todo {
@@ -49,6 +58,7 @@ export default function Home() {
   const [workLifeBalance, setWorkLifeBalance] = useState([50]);
   // a loading boolean initialized to false
   const [loading, setLoading] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   // a string for new text of a todo item initialized to empty string ""
   const [newTodoText, setNewTodoText] = useState("");
 
@@ -61,37 +71,31 @@ export default function Home() {
   );
 
   // Reordering Todos
-  const handleDragEnd = (event: any) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     // runs when a drag operation finishes
     const { active, over } = event; // active: todo item being dragged, over: target todo dropped over
 
-    if (active.id !== over.id) {
-      setTodos((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
+    setTodos((items) => {
+      const reorderedTodos = reorderTodosByIds(items, active?.id, over?.id);
+      return reorderedTodos === items ? items : reorderedTodos;
+    });
   };
 
   const handleGenerateTodos = async () => {
-    if (!project) return;
+    if (!project.trim()) return;
 
     setLoading(true);
+    setGenerationError(null);
     try {
       const workLifeRatio = workLifeBalance[0] / 100;
-      const generatedTodos = await generateTodos(project, workLifeRatio);
+      const generatedTodos = await generateTodos(project.trim(), workLifeRatio);
 
-      const newTodos = generatedTodos.map((text: string) => ({
-        id: Math.random().toString(36).substring(2, 9),
-        text,
-        completed: false,
-      }));
-
-      setTodos([...todos, ...newTodos]);
+      setTodos((currentTodos) =>
+        appendGeneratedTodos(currentTodos, generatedTodos)
+      );
     } catch (error) {
       console.error("Failed to generate todos:", error);
+      setGenerationError("Could not generate todos. Check setup and try again.");
     } finally {
       setLoading(false);
     }
@@ -102,32 +106,37 @@ export default function Home() {
   };
 
   const addTodo = () => {
-    if (!newTodoText.trim()) return;
-
-    const newTodo = {
-      id: Math.random().toString(36).substring(2, 9),
-      text: newTodoText,
-      completed: false,
-    };
-
-    setTodos([...todos, newTodo]);
-    setNewTodoText("");
+    setTodos((currentTodos) => {
+      const nextTodos = addTodoToList(currentTodos, newTodoText);
+      if (nextTodos !== currentTodos) setNewTodoText("");
+      return nextTodos;
+    });
   };
 
   const updateTodo = (id: string, text: string) => {
-    setTodos(todos.map((todo) => (todo.id === id ? { ...todo, text } : todo)));
+    setTodos((currentTodos) => updateTodoText(currentTodos, id, text));
   };
 
   const toggleTodo = (id: string) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    );
+    setTodos((currentTodos) => toggleTodoCompleted(currentTodos, id));
   };
 
   const deleteTodo = (id: string) => {
-    setTodos(todos.filter((todo) => todo.id !== id));
+    setTodos((currentTodos) => deleteTodoById(currentTodos, id));
+  };
+
+  const moveTodo = (id: string, direction: "up" | "down") => {
+    setTodos((currentTodos) => {
+      const currentIndex = currentTodos.findIndex((todo) => todo.id === id);
+      if (currentIndex === -1) return currentTodos;
+
+      const targetIndex =
+        direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      const targetTodo = currentTodos[targetIndex];
+      if (!targetTodo) return currentTodos;
+
+      return reorderTodosByIds(currentTodos, id, targetTodo.id);
+    });
   };
 
   return (
@@ -137,10 +146,11 @@ export default function Home() {
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-lg font-medium">
+            <label htmlFor="project-prompt" className="text-lg font-medium">
               What do you want to work on today?
             </label>
             <Input
+              id="project-prompt"
               value={project}
               onChange={(e) => setProject(e.target.value)}
               placeholder="finish a quick hackathon demo video..."
@@ -169,7 +179,7 @@ export default function Home() {
             <Button
               onClick={handleGenerateTodos}
               className="flex-1"
-              disabled={loading || !project}
+              disabled={loading || !project.trim()}
             >
               {loading ? (
                 <>
@@ -191,6 +201,12 @@ export default function Home() {
               </Button>
             )}
           </div>
+
+          {generationError && (
+            <p className="text-sm text-destructive" role="alert">
+              {generationError}
+            </p>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -201,6 +217,7 @@ export default function Home() {
               value={newTodoText}
               onChange={(e) => setNewTodoText(e.target.value)}
               placeholder="Add a new todo..."
+              aria-label="New todo text"
               className="flex-1"
               onKeyDown={(e) => e.key === "Enter" && addTodo()}
             />
@@ -229,6 +246,7 @@ export default function Home() {
                       onToggle={() => toggleTodo(todo.id)}
                       onUpdate={(text) => updateTodo(todo.id, text)}
                       onDelete={() => deleteTodo(todo.id)}
+                      onMove={(direction) => moveTodo(todo.id, direction)}
                     />
                   ))
                 )}

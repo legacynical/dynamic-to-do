@@ -1,6 +1,6 @@
 "use client"; // Next.js directive for client/server
 
-import { useState } from "react"; // React hook for local state
+import { type KeyboardEvent, useState } from "react"; // React hook for local state
 
 // Imported ui components
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ interface TodoItemProps {
   onToggle: () => void; // func to toggle completed status (no arg, no return)
   onUpdate: (text: string) => void; // func to update todo text (new text string arg, no return)
   onDelete: () => void; // func to delete todo (no arg, no return)
+  onMove: (direction: "up" | "down") => void; // func to reorder todo by one slot
 }
 
 // Component and state
@@ -36,6 +37,7 @@ export default function TodoItem({
   onToggle,
   onUpdate,
   onDelete,
+  onMove,
 }: TodoItemProps) {
   // initialize state var isEditing as false (not in edit mode), uses setIsEditing to update
   const [isEditing, setIsEditing] = useState(false);
@@ -43,8 +45,14 @@ export default function TodoItem({
   const [editText, setEditText] = useState(todo.text);
 
   // Drag-and-drop (@dnd-kit) library
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: todo.id }); // draggable todo item tracked by todo.id
+  const {
+    attributes,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: todo.id }); // draggable todo item tracked by todo.id
   //  useSortable returns following properties:
   //  attributes: HTML attributes for element access/dragging
   //  listeners: event handlers to detect drag interactions
@@ -77,6 +85,13 @@ export default function TodoItem({
     setIsEditing(false); // set edit mode to false
   };
 
+  const handleReorderKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+    event.preventDefault();
+    onMove(event.key === "ArrowUp" ? "up" : "down");
+  };
+
   // UI JSX
   // *for comments inside JSX, use {/* */} or {// } (w/ 2nd bracket on newline)
   return (
@@ -84,15 +99,22 @@ export default function TodoItem({
     <div
       ref={setNodeRef} // links to dnd-kit for dragging
       style={style} // applies dnd-kit transform and transition
+      data-testid="todo-item"
       className={`flex items-center space-x-2 p-3 rounded-md border ${
         todo.completed ? "bg-muted/50" : "bg-card" // conditional styling format
       }`}
     >
       {/* Drag handle w/ properties from dnd-kit */}
       <div
+        ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
+        aria-label={`Reorder todo: ${todo.text}`}
+        aria-keyshortcuts="ArrowUp ArrowDown"
         className="cursor-grab text-muted-foreground hover:text-foreground"
+        onKeyDown={handleReorderKeyDown}
+        role="button"
+        tabIndex={0}
       >
         <GripVertical size={20} /> {/* handle icon from lucide-react library */}
       </div>
@@ -105,6 +127,7 @@ export default function TodoItem({
         checked={todo.completed}
         onCheckedChange={onToggle}
         className="h-5 w-5"
+        aria-label={`${todo.completed ? "Mark incomplete" : "Mark complete"}: ${todo.text}`}
       />
 
       {/* Conditional rendering- edit mode : view mode 
@@ -123,13 +146,24 @@ export default function TodoItem({
             onChange={(e) => setEditText(e.target.value)}
             className="flex-1"
             autoFocus
+            aria-label={`Edit todo text: ${todo.text}`}
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
           />
 
-          <Button size="icon" variant="ghost" onClick={handleSave}>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handleSave}
+            aria-label={`Save todo edit: ${todo.text}`}
+          >
             <Check size={18} />
           </Button>
-          <Button size="icon" variant="ghost" onClick={handleCancel}>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={handleCancel}
+            aria-label={`Cancel todo edit: ${todo.text}`}
+          >
             <X size={18} />
           </Button>
         </div>
@@ -151,11 +185,17 @@ export default function TodoItem({
             size="icon"
             variant="ghost"
             onClick={() => setIsEditing(true)}
+            aria-label={`Edit todo: ${todo.text}`}
           >
             <Pencil size={18} />
           </Button>
 
-          <Button size="icon" variant="ghost" onClick={onDelete}>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            aria-label={`Delete todo: ${todo.text}`}
+          >
             <Trash size={18} />
           </Button>
         </>
