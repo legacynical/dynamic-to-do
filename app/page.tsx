@@ -164,7 +164,9 @@ export default function Home() {
             </label>
             <Slider
               value={workLifeBalance}
-              onValueChange={setWorkLifeBalance}
+              onValueChange={(value) =>
+                setWorkLifeBalance(Array.isArray(value) ? [...value] : [value])
+              }
               max={100}
               step={1}
               className="w-full"
